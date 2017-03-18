@@ -62,7 +62,7 @@ impl Location {
             if let Some(fname) = fname {
                 if fname.contains(name) &&
                     (fname.ends_with("geojson") || fname.ends_with("geojson.bz2")) {
-                    let filepath = PathBuf::from(fname);
+                    let filepath = PathBuf::from(entry.path());
                     return Some(Location {
                         name: String::from(name), filepath: filepath
                     });
@@ -80,8 +80,13 @@ impl Location {
             let fname = entry.path().file_name().unwrap().to_str();
             if let Some(fname) = fname {
                 if fname.contains(&self.name) && fname.contains("bounds") && fname.ends_with("json") {
-                    let bounds: Option<Bounds> = serde_json::from_reader(
-                        file_reader(fname).unwrap()).ok();
+                    let bounds = if let Some(reader) = file_reader(entry.path()) {
+                        println!("Reading predefined bounds from {:?}", entry.path());
+                        serde_json::from_reader(reader).ok()
+                    } else {
+                        println!("Could not make reader for {:?}", entry.path());
+                        None
+                    };
                     if bounds.is_some() {
                         return bounds;
                     }
@@ -100,7 +105,7 @@ impl Location {
 impl<'a> FromParam<'a> for Location {
     type Error = &'static str;
     fn from_param(param: &str) -> Result<Self, Self::Error> {
-        let maybe_location = Location::new(param);
+        let maybe_location = Location::new(&param.to_lowercase());
         if let Some(loc) = maybe_location {
             Ok(loc)
         } else {
@@ -131,7 +136,7 @@ impl SavedLocation {
     fn new(location: &Location) -> Option<SavedLocation> {
         let reader = file_reader(&location.filepath);
         if let Some(reader) = reader {
-            println!("Data found, processing for location {:?}...", location);
+            println!("Data found, processing for {:?}...", location);
             let mut s = Stopwatch::start_new();
             let nodes = roads_from_json(reader, location.predefined_bounds());
             println!("JSON data parse took {} ms, {} roads", s.elapsed_ms(), nodes.len());
@@ -208,7 +213,11 @@ fn subrect<T:Copy>(buf: &[T], buf_cols: usize, start: usize, subdim: (usize, usi
 #[post("/find_match/<location>", data="<data>")]
 fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, location: Location, data: MatchData) -> Option<JSON<Value>> {
     // Within data.bounds, find data.shape.
-    let saved;
+    let b = data.bounds;
+    let saved_geo;
+    let subdt;
+    let substart;
+    let subdim;
     // Copy out the information we need to release the lock as soon as possible.
     {
         let mut saved_locs = saved_locs.lock().unwrap();
@@ -219,13 +228,16 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, locat
                 return None;
             }
         }
-        saved = saved_locs.get_mut(&location).unwrap().clone();
+        let saved = saved_locs.get_mut(&location).unwrap();
+        saved_geo = saved.geo.clone();
+        let subgrid = saved_geo.bounded_subgrid(b.north, b.south, b.east, b.west);
+        substart = subgrid.0;
+        subdim = subgrid.1;
+        subdt = subrect(&saved.dt, saved_geo.size().1, substart, subdim);
     }
     let mut s = Stopwatch::start_new();
-    let b = data.bounds;
-    let (start, (r, w)) = saved.geo.bounded_subgrid(b.north, b.south, b.east, b.west);
-    println!("Finding matches on {} x {} subgrid at {}", r, w, start);
-    let subdt = subrect(&saved.dt, saved.geo.size().1, start, (r, w));
+    let (r, w) = subdim;
+    println!("Finding matches on {} x {} subgrid at {}", r, w, substart);
     // TODO: put this computation into a queue.
     let cm = match_shape(&subdt, (r, w), &data.shape);
     println!("Match finding took {} ms...", s.elapsed_ms());
@@ -237,13 +249,13 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, locat
         // Translate subgrid coordinate back to full grid coordinate.
         let subrows = i / w;
         let subcolumns = i % w;
-        let (s_lat, s_lon) = saved.geo.to_lat_lon(start);
-        let (r_lat, r_lon) = saved.geo.degree_resolution();
-        println!("{} {} {} + ({} {}) from {} with {}", w, subrows, subcolumns, s_lat, s_lon, start, s);
+        let (s_lat, s_lon) = saved_geo.to_lat_lon(substart);
+        let (r_lat, r_lon) = saved_geo.degree_resolution();
+        println!("{} {} {} + ({} {}) from {} with {}", w, subrows, subcolumns, s_lat, s_lon, substart, s);
         (s_lat - subrows as f32 * r_lat, s_lon + subcolumns as f32 * r_lon)
     }).take(8).collect();
     println!("Match sorting and writing took {} ms", s.elapsed_ms());
-    Some(JSON(json!({"best": topk, "scale": saved.geo.degree_resolution()})))
+    Some(JSON(json!({"best": topk, "scale": saved_geo.degree_resolution()})))
 }
 
 fn main() {
