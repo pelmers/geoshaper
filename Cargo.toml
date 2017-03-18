@@ -1,0 +1,18 @@
+[package]
+name = "runshapr"
+version = "0.1.0"
+authors = ["Peter Elmers <peter.elmers@yahoo.com>"]
+
+[dependencies]
+bincode = "1.0.0-alpha5"
+bzip2 = "0.3.1"
+geogrid = { path = "../geogrid" }
+lru-cache = "0.1.0"
+rocket = "0.2.2"
+rocket_codegen = "0.2.2"
+rocket_contrib = "0.2.2"
+serde = "0.9"
+serde_json = "0.9"
+serde_derive = "0.9"
+stopwatch = "0.0.7"
+walkdir = "1"

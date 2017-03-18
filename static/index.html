@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+       #map {
+           height: 400px;
+           width: 100%;
+       }
+       #shape-and-buttons {
+           float: left;
+       }
+       #shape {
+           height: 400px;
+           width: 400px;
+           border-width: 1px;
+           border-style: solid;
+       }
+       #results-container {
+           float: left;
+           height: 400px;
+       }
+       #results > div {
+           cursor: pointer;
+       }
+       #results > div:hover {
+           background: rgba(255, 255, 20, 0.5);
+       }
+       #buttons-container {
+           display:block;
+       }
+       /* loader animation from https://www.w3schools.com/howto/howto_css_loader.asp */
+       .loader {
+           border: 16px solid #f3f3f3; /* Light grey */
+           border-top: 16px solid #3498db; /* Blue */
+           border-radius: 50%;
+           width: 60px;
+           height: 60px;
+           animation: spin 2s linear infinite;
+       }
+
+       @keyframes spin {
+           0% { transform: rotate(0deg); }
+           100% { transform: rotate(360deg); }
+       }
+    </style>
+  </head>
+  <body>
+    <h3>Such map much zoom</h3>
+    Location:
+    <input type="text" id="loctext"></input>
+    <button id="locbutton">Go</button>
+
+    <div id="map"></div>
+    <div id="shape-and-buttons">
+        <canvas id="shape"></canvas>
+        <div id="buttons-container">
+            <button id="clearshape">Clear Drawing</button>
+            <button id="doit">Do the thing</button>
+            <button id="snap">Snapples</button>
+            <button id="clearpaths">Clear Paths</button>
+        </div>
+    </div>
+    <div id="results-container">
+        Top resultats<div id="results"></div>
+        <div id="spinner" class="loader" style="display:none;"></div>
+    </div>
+
+    <script
+            src="https://code.jquery.com/jquery-3.1.1.min.js"
+            integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+            crossorigin="anonymous">
+    </script>
+
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyASZ1-vdBNe0U0XuMkOF4R_GMrHGg2Ah-A&callback=initMap">
+    </script>
+
+    <script src="/static/index.js"></script>
+    <script src="/static/drawing.js"></script>
+    <script src="/static/map.js"></script>
+  </body>
+</html>
