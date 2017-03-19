@@ -23,6 +23,7 @@ use geogrid::{GeoGrid, Bounds};
 use geogrid::util::{match_shape, roads_from_json, node_bounds, mat_to_img};
 use lru_cache::LruCache;
 use rocket::{State, Request, Data, Outcome};
+use rocket::http::uri::URI;
 use rocket::http::Status;
 use rocket::data::FromData;
 use rocket::response::NamedFile;
@@ -105,7 +106,8 @@ impl Location {
 impl<'a> FromParam<'a> for Location {
     type Error = &'static str;
     fn from_param(param: &str) -> Result<Self, Self::Error> {
-        let maybe_location = Location::new(&param.to_lowercase());
+        let decoded = URI::percent_decode_lossy(param.as_bytes());
+        let maybe_location = Location::new(&decoded.to_lowercase());
         if let Some(loc) = maybe_location {
             Ok(loc)
         } else {
@@ -244,6 +246,7 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, locat
     s.restart();
     mat_to_img(&cm, (r, w), format!("{}.cm.png", location.name), Some((0, 20000)));
     let mut cm: Vec<(usize, i32)> = cm.iter().enumerate().map(|(i, &v)| (i ,v)).collect();
+    // TODO: use a parallel sort algorithm
     cm.sort_by_key(|&(_, v)| v);
     let topk: Vec<(f32, f32)> = cm.into_iter().map(|(i, s)| {
         // Translate subgrid coordinate back to full grid coordinate.
@@ -253,7 +256,7 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, locat
         let (r_lat, r_lon) = saved_geo.degree_resolution();
         println!("{} {} {} + ({} {}) from {} with {}", w, subrows, subcolumns, s_lat, s_lon, substart, s);
         (s_lat - subrows as f32 * r_lat, s_lon + subcolumns as f32 * r_lon)
-    }).take(8).collect();
+    }).take(11).collect();
     println!("Match sorting and writing took {} ms", s.elapsed_ms());
     Some(JSON(json!({"best": topk, "scale": saved_geo.degree_resolution()})))
 }

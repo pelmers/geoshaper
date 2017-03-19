@@ -6,7 +6,7 @@ authors = ["Peter Elmers <peter.elmers@yahoo.com>"]
 [dependencies]
 bincode = "1.0.0-alpha5"
 bzip2 = "0.3.1"
-geogrid = { path = "../geogrid" }
+geogrid = "0.1.0"
 lru-cache = "0.1.0"
 rocket = "0.2.2"
 rocket_codegen = "0.2.2"

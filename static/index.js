@@ -3,14 +3,14 @@ var resultsMeta = {};
 var curLoc = "houston";
 
 $("#locbutton").on('click', function(e) {
-    curLoc = $('#loctext').val();
+    curLoc = $('#loctext').val().trim();
     panToLocation(curLoc);
 });
 
 if ($('#loctext').val() === "") {
     $('#loctext').val(curLoc);
 } else {
-    curLoc = $('#loctext').val();
+    curLoc = $('#loctext').val().trim();
 }
 panToLocation(curLoc);
 
