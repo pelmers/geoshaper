@@ -182,12 +182,17 @@ impl FromData for MatchData {
 
 #[get("/")]
 fn index() -> Option<NamedFile> {
-    NamedFile::open(Path::new("static/index.html")).ok()
+    static_file(PathBuf::from("index.html"))
 }
 
 #[get("/static/<file..>")]
-fn static_files(file: PathBuf) -> Option<NamedFile> {
-    NamedFile::open(Path::new("static/").join(file)).ok()
+fn static_file(file: PathBuf) -> Option<NamedFile> {
+    let root = match std::env::current_exe() {
+        Ok(p) => PathBuf::from(p.parent().unwrap_or(Path::new("."))),
+        Err(_) => PathBuf::from(".")
+    };
+    NamedFile::open(root.join(Path::new("static/")).join(&file)).ok().or(
+    NamedFile::open(Path::new("static/").join(&file)).ok())
 }
 
 #[get("/bounds/<location>")]
@@ -264,6 +269,6 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, locat
 fn main() {
     let saved_locs: Mutex<LruCache<Location, SavedLocation>> = Mutex::new(LruCache::new(3));
     rocket::ignite().manage(saved_locs)
-                    .mount("/", routes![index, static_files, bounds, find_match])
+                    .mount("/", routes![index, static_file, bounds, find_match])
                     .launch();
 }
