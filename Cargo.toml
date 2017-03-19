@@ -1,7 +1,14 @@
 [package]
-name = "runshapr"
+name = "geoshaper"
 version = "0.1.0"
 authors = ["Peter Elmers <peter.elmers@yahoo.com>"]
+description = "Find shapes on maps."
+license = "MIT"
+documentation = "https://docs.rs/geoshaper"
+homepage = "https://github.com/pelmers/geoshaper"
+repository = "https://github.com/pelmers/geoshaper"
+keywords = ["geography", "map", "cartography"]
+categories = ["visualization"]
 
 [dependencies]
 bincode = "1.0.0-alpha5"
