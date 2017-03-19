@@ -101,6 +101,10 @@ impl Location {
         self.predefined_bounds().unwrap_or_else(|| node_bounds(roads_from_json(
                     file_reader(&self.filepath).unwrap(), None).iter().flat_map(|r| r.iter())))
     }
+
+    fn parent(&self) -> PathBuf {
+        PathBuf::from(self.filepath.parent().unwrap_or(Path::new(".")))
+    }
 }
 
 impl<'a> FromParam<'a> for Location {
@@ -153,8 +157,10 @@ impl SavedLocation {
             println!("Distance transform took {} ms", s.elapsed_ms());
             s.restart();
             // Save some space by clearing the grid since we only need the distance transform now.
-            mat_to_img(geo.grid(), geo.size(), format!("{}.grid.png", location.name), None);
-            mat_to_img(&dt, geo.size(), format!("{}.dt.png", location.name), Some((0, 150)));
+            mat_to_img(geo.grid(), geo.size(),
+                       location.parent().join(format!("{}.grid.png", location.name)), None);
+            mat_to_img(&dt, geo.size(),
+                       location.parent().join(format!("{}.dt.png", location.name)), Some((0, 150)));
             println!("Image saving took {} ms", s.elapsed_ms());
             geo.clear_grid();
             Some(SavedLocation{
@@ -249,7 +255,8 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>, locat
     let cm = match_shape(&subdt, (r, w), &data.shape);
     println!("Match finding took {} ms...", s.elapsed_ms());
     s.restart();
-    mat_to_img(&cm, (r, w), format!("{}.cm.png", location.name), Some((0, 20000)));
+    mat_to_img(&cm, (r, w),
+                location.parent().join(format!("{}.cm.png", location.name)), Some((0, 10000)));
     let mut cm: Vec<(usize, i32)> = cm.iter().enumerate().map(|(i, &v)| (i ,v)).collect();
     // TODO: use a parallel sort algorithm
     cm.sort_by_key(|&(_, v)| v);
