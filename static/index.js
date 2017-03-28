@@ -21,6 +21,7 @@ function panToLocation(loc) {
         map.fitBounds(bounds);
         box.setBounds(bounds);
     }).fail(function() {
+        // TODO: offer to download from https://s3.amazonaws.com/metro-extracts.mapzen.com/
         alert("location not found. ?!");
     }).always(function() {
         $("#spinner").hide();
@@ -28,10 +29,10 @@ function panToLocation(loc) {
 }
 
 $("#results").on('click', function(e) {
-    if (!event.target.id.startsWith("result_")) {
+    if (!e.target.id.startsWith("result_")) {
         return;
     }
-    let d = parseInt(event.target.id.slice("result_".length));
+    const d = parseInt(e.target.id.slice("result_".length));
     if (d >= 0 && d < results.length) {
         pathFromLoc(results[d][0], results[d][1]);
     }

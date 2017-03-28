@@ -1,6 +1,6 @@
 [package]
 name = "geoshaper"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Peter Elmers <peter.elmers@yahoo.com>"]
 description = "Find shapes on maps."
 license = "MIT"
@@ -13,8 +13,11 @@ categories = ["visualization"]
 [dependencies]
 bincode = "1.0.0-alpha5"
 bzip2 = "0.3.1"
-geogrid = "0.1.0"
+geogrid = "0.2.1"
+lazy_static = "0.2"
 lru-cache = "0.1.0"
+quicksort = "1.1.0"
+getopts = "0.2"
 rocket = "0.2.2"
 rocket_codegen = "0.2.2"
 rocket_contrib = "0.2.2"
@@ -23,3 +26,4 @@ serde_json = "0.9"
 serde_derive = "0.9"
 stopwatch = "0.0.7"
 walkdir = "1"
+ocl = "0.12"

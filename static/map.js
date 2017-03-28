@@ -16,7 +16,7 @@ function initMap() {
     // Define a box and set its editable property to true.
     box = new google.maps.Rectangle({
         bounds: bounds,
-        editable: true
+        editable: true,
     });
     box.setMap(map);
 
