@@ -160,6 +160,9 @@ fn bounds(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
 /// provided dimensions.
 fn subrect<T: Copy>(buf: &[T], buf_cols: usize, start: usize, subdim: (usize, usize)) -> Vec<T> {
     let (s, t) = subdim;
+    if s * t + start > buf.len() {
+        return vec![];
+    }
     let mut v = Vec::with_capacity(s * t);
     let bufr = start / buf_cols;
     let bufc = start % buf_cols;
