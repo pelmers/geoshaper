@@ -1,6 +1,6 @@
 [package]
 name = "geoshaper"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Peter Elmers <peter.elmers@yahoo.com>"]
 description = "Find shapes on maps."
 license = "MIT"
