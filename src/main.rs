@@ -39,6 +39,7 @@ use types::*;
 /// Struct used to store parsed command line arguments or other configuration.
 struct GlobalConfig {
     ocl_device: Option<Device>,
+    cache_size: usize,
 }
 
 lazy_static! {
@@ -47,6 +48,7 @@ lazy_static! {
         let program = args[0].clone();
         let mut opts = Options::new();
         opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
+        opts.optopt("c", "cache", "number of recent locations to cache (default: 3)", "CACHE");
         opts.optflag("h", "help", "print this help menu");
         let matches = match opts.parse(&args[1..]) {
             Ok(m) => { m }
@@ -70,7 +72,8 @@ lazy_static! {
                         }
                     })
                 })
-            })
+            }),
+            cache_size: matches.opt_str("c").and_then(|s| s.parse::<usize>().ok()).unwrap_or(3),
         }
     };
 }
@@ -189,8 +192,9 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
 }
 
 fn main() {
-    let saved_locs: Mutex<LruCache<Location, SavedLocation>> = Mutex::new(LruCache::new(3));
     lazy_static::initialize(&CONFIG);
+    let saved_locs: Mutex<LruCache<Location, SavedLocation>> =
+        Mutex::new(LruCache::new(CONFIG.cache_size));
     rocket::ignite()
         .manage(saved_locs)
         .mount("/", routes![index, static_file, bounds, find_match])
