@@ -43,15 +43,16 @@ mod opencl {
 
     pub fn device_for_index(idx: usize) -> Option<Device> {
         use ocl::builders::DeviceSpecifier;
-        (DeviceSpecifier::All).to_device_list(None).ok().and_then(|all_devices| {
-            if idx < all_devices.len() {
+        (DeviceSpecifier::All)
+            .to_device_list(None)
+            .ok()
+            .and_then(|all_devices| if idx < all_devices.len() {
                 let device = all_devices[idx];
                 println!("Device {} selected", device.name());
                 Some(device)
             } else {
                 None
-            }
-        })
+            })
     }
 }
 
@@ -64,11 +65,17 @@ mod opencl {
         }
     }
 
-    pub fn match_shape_ocl(_: &[i32], _: (usize, usize), _: &[Vec<bool>], _: &Device, _: Option<usize>) -> Vec<i32> {
+    pub fn match_shape_ocl(_: &[i32],
+                           _: (usize, usize),
+                           _: &[Vec<bool>],
+                           _: &Device,
+                           _: Option<usize>)
+                           -> Vec<i32> {
         vec![]
     }
 
     pub fn device_for_index(_: usize) -> Option<Device> {
+        println!("Warning: opencl feature not enabled, option ignored.");
         None
     }
 }
@@ -87,9 +94,7 @@ lazy_static! {
         let args: Vec<String> = env::args().collect();
         let program = args[0].clone();
         let mut opts = Options::new();
-        if cfg!(feature="opencl") {
-            opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
-        }
+        opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
         opts.optopt("c", "cache", "number of recent locations to cache (default: 3)", "CACHE");
         opts.optflag("s", "sequential", "run shape matching algorithm in sequential mode");
         opts.optflag("h", "help", "print this help menu");
@@ -126,6 +131,15 @@ fn static_file(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(root.join(Path::new("static/")).join(&file))
         .ok()
         .or_else(|| NamedFile::open(Path::new("static/").join(&file)).ok())
+}
+
+#[get("/map_list")]
+fn map_list() -> String {
+    map_filename_match(|s| s.contains("geojson"))
+        .iter()
+        .filter_map(|p| p.file_name().map(|o| o.to_string_lossy()))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[get("/bounds/<location>")]
@@ -234,6 +248,7 @@ fn main() {
         Mutex::new(LruCache::new(CONFIG.cache_size));
     rocket::ignite()
         .manage(saved_locs)
-        .mount("/", routes![index, static_file, bounds, find_match])
+        .mount("/",
+               routes![index, static_file, map_list, bounds, find_match])
         .launch();
 }

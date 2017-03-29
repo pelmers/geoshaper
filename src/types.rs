@@ -41,7 +41,7 @@ impl Hash for Location {
     }
 }
 
-fn map_filename_match<P: Fn(Cow<str>) -> bool>(pred: P) -> Vec<PathBuf> {
+pub fn map_filename_match<P: Fn(Cow<str>) -> bool>(pred: P) -> Vec<PathBuf> {
     let mut results = vec![];
     // Look either in the current folder or in the folder of the executable.
     for root in env::current_exe()
