@@ -87,6 +87,7 @@ struct GlobalConfig {
     ocl_device: Option<Device>,
     sequential: bool,
     cache_size: usize,
+    grid_dim: usize,
 }
 
 lazy_static! {
@@ -95,6 +96,7 @@ lazy_static! {
         let program = args[0].clone();
         let mut opts = Options::new();
         opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
+        opts.optopt("w", "width", "set in pixels maximum dimension of grid", "WIDTH");
         opts.optopt("c", "cache", "number of recent locations to cache (default: 3)", "CACHE");
         opts.optflag("s", "sequential", "run shape matching algorithm in sequential mode");
         opts.optflag("h", "help", "print this help menu");
@@ -108,10 +110,11 @@ lazy_static! {
         }
         GlobalConfig {
             ocl_device: matches.opt_str("d").and_then(|s| {
-                s.parse::<usize>().ok().and_then(|d| device_for_index(d))
+                s.parse::<usize>().ok().and_then(device_for_index)
             }),
             sequential: matches.opt_present("s"),
             cache_size: matches.opt_str("c").and_then(|s| s.parse::<usize>().ok()).unwrap_or(3),
+            grid_dim: matches.opt_str("w").and_then(|s| s.parse::<usize>().ok()).unwrap_or(9000),
         }
     };
 }
@@ -183,7 +186,7 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
     {
         let mut saved_locs = saved_locs.lock().unwrap();
         if !saved_locs.contains_key(&location) {
-            if let Some(loc) = SavedLocation::new(&location) {
+            if let Some(loc) = SavedLocation::new(&location, CONFIG.grid_dim) {
                 saved_locs.insert(location.clone(), loc);
             } else {
                 return None;
@@ -203,12 +206,10 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
     let cm = if let Some(ref device) = CONFIG.ocl_device {
         println!("Using device {}", device.name());
         match_shape_ocl(&subdt, (r, w), &data.shape, device, None)
+    } else if CONFIG.sequential {
+        match_shape_slow(&subdt, (r, w), &data.shape)
     } else {
-        if CONFIG.sequential {
-            match_shape_slow(&subdt, (r, w), &data.shape)
-        } else {
-            match_shape(&subdt, (r, w), &data.shape)
-        }
+        match_shape(&subdt, (r, w), &data.shape)
     };
     println!("Match finding took {} ms...", s.elapsed_ms());
     s.restart();

@@ -18,8 +18,6 @@ use rocket::request::FromParam;
 use stopwatch::Stopwatch;
 
 
-const GRID_DIM: usize = 9000;
-
 #[derive(Debug, Clone)]
 pub struct Location {
     pub name: String,
@@ -134,7 +132,7 @@ fn file_reader<P: AsRef<Path>>(p: P) -> Option<Box<BufRead>> {
 
 
 impl SavedLocation {
-    pub fn new(location: &Location) -> Option<SavedLocation> {
+    pub fn new(location: &Location, grid_dim: usize) -> Option<SavedLocation> {
         let reader = file_reader(&location.filepath);
         if let Some(reader) = reader {
             println!("Data found, processing for {:?}...", location);
@@ -144,7 +142,7 @@ impl SavedLocation {
                      s.elapsed_ms(),
                      nodes.len());
             s.restart();
-            let mut geo = GeoGrid::from_roads(&nodes, (GRID_DIM, GRID_DIM), true);
+            let mut geo = GeoGrid::from_roads(&nodes, (grid_dim, grid_dim), true);
             println!("{:?} grid construction took {} ms",
                      geo.size(),
                      s.elapsed_ms());
