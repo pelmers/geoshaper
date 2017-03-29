@@ -11,7 +11,7 @@ keywords = ["geography", "map", "cartography"]
 categories = ["visualization"]
 
 [features]
-default = ["opencl"]
+default = []
 opencl = ["ocl"]
 
 [dependencies]
