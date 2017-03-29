@@ -7,8 +7,6 @@ extern crate quicksort;
 extern crate rocket;
 extern crate geogrid;
 extern crate lru_cache;
-#[cfg(feature="opencl")]
-extern crate ocl;
 extern crate serde_json;
 extern crate stopwatch;
 extern crate getopts;
@@ -18,6 +16,8 @@ extern crate rocket_contrib;
 extern crate serde_derive;
 #[macro_use]
 extern crate lazy_static;
+#[cfg(feature="opencl")]
+extern crate ocl;
 
 use std::process;
 use std::sync::Mutex;
@@ -25,12 +25,6 @@ use std::path::{Path, PathBuf};
 use std::env;
 
 use geogrid::util::{match_shape, mat_to_img};
-#[cfg(feature="opencl")]
-use geogrid::util::match_shape_ocl;
-#[cfg(feature="opencl")]
-use ocl::Device;
-#[cfg(feature="opencl")]
-use ocl::builders::DeviceSpecifier;
 
 use getopts::Options;
 use lru_cache::LruCache;
@@ -42,45 +36,49 @@ use stopwatch::Stopwatch;
 mod types;
 use types::*;
 
-// Dummy struct + function which will not be used without opencl enabled.
-#[cfg(not(feature="opencl"))]
-struct Device {}
-#[cfg(not(feature="opencl"))]
-impl Device {
-    fn name(&self) -> &'static str {
-        "Unsupported"
-    }
-    fn vendor(&self) -> &'static str {
-        "Unsupported"
+#[cfg(feature="opencl")]
+mod opencl {
+    pub use geogrid::util::match_shape_ocl;
+    pub use ocl::Device;
+
+    pub fn device_for_index(idx: usize) -> Option<Device> {
+        use ocl::builders::DeviceSpecifier;
+        (DeviceSpecifier::All).to_device_list(None).ok().and_then(|all_devices| {
+            if idx < all_devices.len() {
+                let device = all_devices[idx];
+                println!("Device {} selected", device.name());
+                Some(device)
+            } else {
+                None
+            }
+        })
     }
 }
+
 #[cfg(not(feature="opencl"))]
-fn match_shape_ocl(_: &[i32], _: (usize, usize), _: &[Vec<bool>], _: &Device, _: Option<usize>) -> Vec<i32> {
-    vec![]
+mod opencl {
+    pub struct Device {}
+    impl Device {
+        pub fn name(&self) -> &'static str {
+            "Unsupported"
+        }
+    }
+
+    pub fn match_shape_ocl(_: &[i32], _: (usize, usize), _: &[Vec<bool>], _: &Device, _: Option<usize>) -> Vec<i32> {
+        vec![]
+    }
+
+    pub fn device_for_index(_: usize) -> Option<Device> {
+        None
+    }
 }
+
+use opencl::*;
 
 /// Struct used to store parsed command line arguments or other configuration.
 struct GlobalConfig {
     ocl_device: Option<Device>,
     cache_size: usize,
-}
-
-#[cfg(feature="opencl")]
-fn device_for_index(idx: usize) -> Option<Device> {
-    (DeviceSpecifier::All).to_device_list(None).ok().and_then(|all_devices| {
-        if idx < all_devices.len() {
-            let device = all_devices[idx];
-            println!("Device {} selected", device.name());
-            Some(device)
-        } else {
-            None
-        }
-    })
-}
-
-#[cfg(not(feature="opencl"))]
-fn device_for_index(_: usize) -> Option<Device> {
-    None
 }
 
 lazy_static! {
@@ -186,7 +184,7 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
     println!("Finding matches on {} x {} subgrid at {}", r, w, substart);
     // TODO: put this computation into a queue.
     let cm = if let Some(ref device) = CONFIG.ocl_device {
-        println!("Using device {}, {}", device.name(), device.vendor());
+        println!("Using device {}", device.name());
         match_shape_ocl(&subdt, (r, w), &data.shape, device, None)
     } else {
         match_shape(&subdt, (r, w), &data.shape)
