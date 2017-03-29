@@ -24,7 +24,7 @@ use std::sync::Mutex;
 use std::path::{Path, PathBuf};
 use std::env;
 
-use geogrid::util::{match_shape, mat_to_img};
+use geogrid::util::{match_shape, match_shape_slow, mat_to_img};
 
 use getopts::Options;
 use lru_cache::LruCache;
@@ -78,6 +78,7 @@ use opencl::*;
 /// Struct used to store parsed command line arguments or other configuration.
 struct GlobalConfig {
     ocl_device: Option<Device>,
+    sequential: bool,
     cache_size: usize,
 }
 
@@ -90,6 +91,7 @@ lazy_static! {
             opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
         }
         opts.optopt("c", "cache", "number of recent locations to cache (default: 3)", "CACHE");
+        opts.optflag("s", "sequential", "run shape matching algorithm in sequential mode");
         opts.optflag("h", "help", "print this help menu");
         let matches = match opts.parse(&args[1..]) {
             Ok(m) => { m }
@@ -103,6 +105,7 @@ lazy_static! {
             ocl_device: matches.opt_str("d").and_then(|s| {
                 s.parse::<usize>().ok().and_then(|d| device_for_index(d))
             }),
+            sequential: matches.opt_present("s"),
             cache_size: matches.opt_str("c").and_then(|s| s.parse::<usize>().ok()).unwrap_or(3),
         }
     };
@@ -187,7 +190,11 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
         println!("Using device {}", device.name());
         match_shape_ocl(&subdt, (r, w), &data.shape, device, None)
     } else {
-        match_shape(&subdt, (r, w), &data.shape)
+        if CONFIG.sequential {
+            match_shape_slow(&subdt, (r, w), &data.shape)
+        } else {
+            match_shape(&subdt, (r, w), &data.shape)
+        }
     };
     println!("Match finding took {} ms...", s.elapsed_ms());
     s.restart();
