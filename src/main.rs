@@ -7,6 +7,7 @@ extern crate quicksort;
 extern crate rocket;
 extern crate geogrid;
 extern crate lru_cache;
+#[cfg(feature="opencl")]
 extern crate ocl;
 extern crate serde_json;
 extern crate stopwatch;
@@ -23,11 +24,16 @@ use std::sync::Mutex;
 use std::path::{Path, PathBuf};
 use std::env;
 
-use geogrid::util::{match_shape, match_shape_ocl, mat_to_img};
+use geogrid::util::{match_shape, mat_to_img};
+#[cfg(feature="opencl")]
+use geogrid::util::match_shape_ocl;
+#[cfg(feature="opencl")]
+use ocl::Device;
+#[cfg(feature="opencl")]
+use ocl::builders::DeviceSpecifier;
+
 use getopts::Options;
 use lru_cache::LruCache;
-use ocl::Device;
-use ocl::builders::DeviceSpecifier;
 use rocket::State;
 use rocket::response::NamedFile;
 use rocket_contrib::{JSON, Value};
@@ -36,10 +42,45 @@ use stopwatch::Stopwatch;
 mod types;
 use types::*;
 
+// Dummy struct + function which will not be used without opencl enabled.
+#[cfg(not(feature="opencl"))]
+struct Device {}
+#[cfg(not(feature="opencl"))]
+impl Device {
+    fn name(&self) -> &'static str {
+        "Unsupported"
+    }
+    fn vendor(&self) -> &'static str {
+        "Unsupported"
+    }
+}
+#[cfg(not(feature="opencl"))]
+fn match_shape_ocl(_: &[i32], _: (usize, usize), _: &[Vec<bool>], _: &Device, _: Option<usize>) -> Vec<i32> {
+    vec![]
+}
+
 /// Struct used to store parsed command line arguments or other configuration.
 struct GlobalConfig {
     ocl_device: Option<Device>,
     cache_size: usize,
+}
+
+#[cfg(feature="opencl")]
+fn device_for_index(idx: usize) -> Option<Device> {
+    (DeviceSpecifier::All).to_device_list(None).ok().and_then(|all_devices| {
+        if idx < all_devices.len() {
+            let device = all_devices[idx];
+            println!("Device {} selected", device.name());
+            Some(device)
+        } else {
+            None
+        }
+    })
+}
+
+#[cfg(not(feature="opencl"))]
+fn device_for_index(_: usize) -> Option<Device> {
+    None
 }
 
 lazy_static! {
@@ -47,7 +88,9 @@ lazy_static! {
         let args: Vec<String> = env::args().collect();
         let program = args[0].clone();
         let mut opts = Options::new();
-        opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
+        if cfg!(feature="opencl") {
+            opts.optopt("d", "device", "set a device index for OpenCL", "DEVICE");
+        }
         opts.optopt("c", "cache", "number of recent locations to cache (default: 3)", "CACHE");
         opts.optflag("h", "help", "print this help menu");
         let matches = match opts.parse(&args[1..]) {
@@ -60,18 +103,7 @@ lazy_static! {
         }
         GlobalConfig {
             ocl_device: matches.opt_str("d").and_then(|s| {
-                let device_idx = s.parse::<usize>().ok();
-                device_idx.and_then(|d| {
-                    (DeviceSpecifier::All).to_device_list(None).ok().and_then(|all_devices| {
-                        if d < all_devices.len() {
-                            let device = all_devices[d];
-                            println!("Device {} selected", device.name());
-                            Some(device)
-                        } else {
-                            None
-                        }
-                    })
-                })
+                s.parse::<usize>().ok().and_then(|d| device_for_index(d))
             }),
             cache_size: matches.opt_str("c").and_then(|s| s.parse::<usize>().ok()).unwrap_or(3),
         }

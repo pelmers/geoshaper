@@ -10,6 +10,10 @@ repository = "https://github.com/pelmers/geoshaper"
 keywords = ["geography", "map", "cartography"]
 categories = ["visualization"]
 
+[features]
+default = []
+opencl = []
+
 [dependencies]
 bincode = "1.0.0-alpha5"
 bzip2 = "0.3.1"
