@@ -2,7 +2,10 @@ use serde_json;
 use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::fs::File;
+use std::fs::{File, read_dir};
+use std::env;
+use std::iter;
+use std::borrow::Cow;
 
 use bzip2::read::BzDecoder;
 use geogrid::{GeoGrid, Bounds};
@@ -13,7 +16,6 @@ use rocket::http::Status;
 use rocket::data::FromData;
 use rocket::request::FromParam;
 use stopwatch::Stopwatch;
-use walkdir::WalkDir;
 
 
 const GRID_DIM: usize = 9000;
@@ -30,6 +32,7 @@ impl PartialEq for Location {
         self.filepath == other.filepath
     }
 }
+
 impl Eq for Location {}
 
 impl Hash for Location {
@@ -38,52 +41,49 @@ impl Hash for Location {
     }
 }
 
-impl Location {
-    pub fn new(name: &str) -> Option<Location> {
-        // Find a file containing name and "geojson."
-        for entry in WalkDir::new(".")
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file()) {
-            let fname = entry.path().file_name().unwrap().to_str();
-            if let Some(fname) = fname {
-                if fname.contains(name) &&
-                   (fname.ends_with("geojson") || fname.ends_with("geojson.bz2")) {
-                    let filepath = PathBuf::from(entry.path());
-                    return Some(Location {
-                        name: String::from(name),
-                        filepath: filepath,
-                    });
+fn map_filename_match<P: Fn(Cow<str>) -> bool>(pred: P) -> Vec<PathBuf> {
+    let mut results = vec![];
+    // Look either in the current folder or in the folder of the executable.
+    for root in env::current_exe()
+        .iter()
+        .chain(iter::once(&PathBuf::from(".")))
+        .filter_map(|p| p.parent()) {
+        // Join root with "maps" and read_dir for the needed file.
+        if let Ok(paths) = read_dir(root.join(Path::new("maps/"))) {
+            for entry in paths.filter_map(|p| p.ok()) {
+                if pred(entry.file_name().to_string_lossy()) {
+                    results.push(entry.path());
                 }
             }
         }
-        None
+    }
+    results
+}
+
+impl Location {
+    pub fn new(name: &str) -> Option<Location> {
+        map_filename_match(|fname| {
+                fname.contains(name) &&
+                (fname.ends_with("geojson") || fname.ends_with("geojson.bz2"))
+            })
+            .into_iter()
+            .next()
+            .map(|p| {
+                Location {
+                    name: String::from(name),
+                    filepath: p,
+                }
+            })
     }
 
     pub fn predefined_bounds(&self) -> Option<Bounds> {
         // Look for some easy bounds predefined.
-        for entry in WalkDir::new(".")
+        map_filename_match(|fname| {
+                fname.contains(&self.name) && fname.contains("bounds") && fname.ends_with("json")
+            })
             .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file()) {
-            let fname = entry.path().file_name().unwrap().to_str();
-            if let Some(fname) = fname {
-                if fname.contains(&self.name) && fname.contains("bounds") &&
-                   fname.ends_with("json") {
-                    let bounds = if let Some(reader) = file_reader(entry.path()) {
-                        println!("Reading predefined bounds from {:?}", entry.path());
-                        serde_json::from_reader(reader).ok()
-                    } else {
-                        println!("Could not make reader for {:?}", entry.path());
-                        None
-                    };
-                    if bounds.is_some() {
-                        return bounds;
-                    }
-                }
-            }
-        }
-        None
+            .next()
+            .and_then(|p| file_reader(p).and_then(|reader| serde_json::from_reader(reader).ok()))
     }
 
     pub fn find_bounds(&self) -> Bounds {

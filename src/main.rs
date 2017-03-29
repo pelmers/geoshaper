@@ -10,7 +10,6 @@ extern crate lru_cache;
 extern crate ocl;
 extern crate serde_json;
 extern crate stopwatch;
-extern crate walkdir;
 extern crate getopts;
 #[macro_use]
 extern crate rocket_contrib;
@@ -83,7 +82,8 @@ fn index() -> Option<NamedFile> {
 
 #[get("/static/<file..>")]
 fn static_file(file: PathBuf) -> Option<NamedFile> {
-    let root = match std::env::current_exe() {
+    // Load static file from directory relative to either exe location or cwd.
+    let root = match env::current_exe() {
         Ok(p) => PathBuf::from(p.parent().unwrap_or_else(|| Path::new("."))),
         Err(_) => PathBuf::from("."),
     };
