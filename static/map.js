@@ -21,5 +21,5 @@ function initMap() {
     box.setMap(map);
 
     $('#locmenu').val('houston');
-    panToLocation('houston');
+    panToLocation(curLoc);
 }

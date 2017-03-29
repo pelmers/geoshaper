@@ -12,7 +12,6 @@ if ($('#loctext').val() === "") {
 } else {
     curLoc = $('#loctext').val().trim();
 }
-panToLocation(curLoc);
 
 function panToLocation(loc) {
     $("#spinner").show();
