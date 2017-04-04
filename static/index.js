@@ -102,7 +102,6 @@ function flip(matrix) {
     var n = [];
     for (var i = matrix.length - 1; i >= 0; i--) {
         var row = matrix[i].concat();
-        row.reverse();
         n.push(row);
     }
     return n;
@@ -170,7 +169,7 @@ function pathFromLoc(bLat, bLon) {
     var sLon = resultsMeta.scale[1];
     var path = [];
     var offset = findOffset(resultsMeta.shape);
-    var shapeCrop = flip(autocrop(resultsMeta.shape));
+    var shapeCrop = resultsMeta.shapeCrop;
     for (var i = 0; i < resultsMeta.cX.length; i++) {
         var x = resultsMeta.cX[i] - offset.col;
         var y = shapeCrop[0].length - (resultsMeta.cY[i] - offset.row);
@@ -216,6 +215,7 @@ $('#doit').on('click', function(e) {
         resultsMeta.cX = cX;
         resultsMeta.cY = cY;
         resultsMeta.shape = shape;
+        resultsMeta.shapeCrop = shapeCrop;
         pathFromLoc(results[0][0], results[0][1]);
         let $results = $("#results");
         $results.empty();
