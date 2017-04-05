@@ -24,7 +24,7 @@ use std::sync::Mutex;
 use std::path::{Path, PathBuf};
 use std::env;
 
-use geogrid::util::{match_shape, match_shape_slow, mat_to_img};
+use geogrid::util::{Device, Processor, match_shape, mat_to_img};
 
 use getopts::Options;
 use lru_cache::LruCache;
@@ -38,9 +38,6 @@ use types::*;
 
 #[cfg(feature="opencl")]
 mod opencl {
-    pub use geogrid::util::match_shape_ocl;
-    pub use ocl::Device;
-
     pub fn device_for_index(idx: usize) -> Option<Device> {
         use ocl::builders::DeviceSpecifier;
         (DeviceSpecifier::All)
@@ -58,22 +55,7 @@ mod opencl {
 
 #[cfg(not(feature="opencl"))]
 mod opencl {
-    pub struct Device {}
-    impl Device {
-        pub fn name(&self) -> &'static str {
-            "Unsupported"
-        }
-    }
-
-    pub fn match_shape_ocl(_: &[i32],
-                           _: (usize, usize),
-                           _: &[Vec<bool>],
-                           _: &Device,
-                           _: Option<usize>)
-                           -> Vec<i32> {
-        vec![]
-    }
-
+    use geogrid::util::Device;
     pub fn device_for_index(_: usize) -> Option<Device> {
         println!("Warning: opencl feature not enabled, option ignored.");
         None
@@ -208,11 +190,11 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
     // TODO: put this computation into a queue.
     let cm = if let Some(ref device) = CONFIG.ocl_device {
         println!("Using device {}", device.name());
-        match_shape_ocl(&subdt, (r, w), &data.shape, device, None)
+        match_shape(&subdt, (r, w), &data.shape, 2, Processor::GPU(device, 256))
     } else if CONFIG.sequential {
-        match_shape_slow(&subdt, (r, w), &data.shape)
+        match_shape(&subdt, (r, w), &data.shape, 2, Processor::SingleCore)
     } else {
-        match_shape(&subdt, (r, w), &data.shape)
+        match_shape(&subdt, (r, w), &data.shape, 2, Processor::MultiCore)
     };
     println!("Match finding took {} ms...", s.elapsed_ms());
     s.restart();
