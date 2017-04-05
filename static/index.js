@@ -109,7 +109,9 @@ function flip(matrix) {
 
 $('#clearpaths').on('click', function() {
     for (let i = 0; i < paths.length; i++) {
-        paths[i].setMap(null);
+        for (let p = 0; p < paths[i].length; p++) {
+            paths[i][p].setMap(null);
+        }
     }
     paths = [];
 });
@@ -122,69 +124,85 @@ $('#snap').on('click', function(e) {
         did_snap = true;
     }
     let to_snap = paths[paths.length - 1];
-    let path = to_snap.getPath();
-    let pathValues = [];
-    // Google only allows 100 points to snap so skip some if it's too long.
-    // TODO: write our own road snap.
-    for (var i = 0; i < path.getLength(); i += Math.max(1, path.getLength() / 100)) {
-        pathValues.push(path.getAt(Math.floor(i)).toUrlValue());
-    }
-    // Previous math isn't exact, it may have made 1 extra.
-    pathValues = pathValues.slice(0, 100);
-    console.log("help me google thanks.", pathValues.length);
-    $.get('https://roads.googleapis.com/v1/snapToRoads', {
-        //interpolate: true,
-        key: 'AIzaSyASZ1-vdBNe0U0XuMkOF4R_GMrHGg2Ah-A',
-        path: pathValues.join('|')
-    }, function(data) {
-        // Remove the old path from the map, and draw the new one.
-        to_snap.setMap(null);
-        console.log(data);
-        if (data.snappedPoints === undefined) {
-            return;
+    let snap_paths = [];
+    paths.push(snap_paths);
+    for (var t = 0; t < to_snap.length; t++) {
+        let to_snap_t = to_snap[t];
+        let path = to_snap_t.getPath();
+        // Remove old path from the map
+        let pathValues = [];
+        // Google only allows 100 points to snap so skip some if it's too long.
+        // TODO: write our own road snap.
+        for (var i = 0; i < path.getLength(); i += Math.max(1, path.getLength() / 100)) {
+            pathValues.push(path.getAt(Math.floor(i)).toUrlValue());
         }
-        let snappedCoordinates = [];
-        for (var i = 0; i < data.snappedPoints.length; i++) {
-            var latlng = new google.maps.LatLng(
-                data.snappedPoints[i].location.latitude,
-                data.snappedPoints[i].location.longitude);
-            snappedCoordinates.push(latlng);
-        }
-        let snapped = new google.maps.Polyline({
-            path: snappedCoordinates,
-            strokeColor: '#0000FF',
-            strokeOpacity: 0.9,
-            strokeWeight: 3
+        // Previous math isn't exact, it may have made 1 extra.
+        pathValues = pathValues.slice(0, 100);
+        console.log("help me google thanks.", pathValues.length);
+        $.get('https://roads.googleapis.com/v1/snapToRoads', {
+            //interpolate: true,
+            key: 'AIzaSyASZ1-vdBNe0U0XuMkOF4R_GMrHGg2Ah-A',
+            path: pathValues.join('|')
+        }, function(data) {
+            // Clear old path and draw new path
+            to_snap_t.setMap(null);
+            console.log(data);
+            if (data.snappedPoints === undefined) {
+                return;
+            }
+            let snappedCoordinates = [];
+            for (var i = 0; i < data.snappedPoints.length; i++) {
+                var latlng = new google.maps.LatLng(
+                    data.snappedPoints[i].location.latitude,
+                    data.snappedPoints[i].location.longitude);
+                snappedCoordinates.push(latlng);
+            }
+            let snapped = new google.maps.Polyline({
+                path: snappedCoordinates,
+                strokeColor: '#0000FF',
+                strokeOpacity: 0.9,
+                strokeWeight: 3
+            });
+            snapped.setMap(map);
+            snap_paths.push(snapped);
+        }).fail(function(e) {
+            console.log("it failed :(");
+            console.log(e);
         });
-        snapped.setMap(map);
-        paths.push(snapped);
-    }).fail(function(e) {
-        console.log("it failed :(");
-        console.log(e);
-    });
+    }
 });
 
 function pathFromLoc(bLat, bLon) {
     var sLat = resultsMeta.scale[0];
     var sLon = resultsMeta.scale[1];
+    var res_paths = [];
     var path = [];
     var offset = findOffset(resultsMeta.shape);
     var shapeCrop = resultsMeta.shapeCrop;
     for (var i = 0; i < resultsMeta.cX.length; i++) {
+        if (path.length > 0 && !resultsMeta.cD[i]) {
+            res_paths.push(path);
+            path = [];
+        }
         var x = resultsMeta.cX[i] - offset.col;
         var y = shapeCrop[0].length - (resultsMeta.cY[i] - offset.row);
         var pos = {lat: bLat + y*sLat, lng: bLon + x * sLon};
         path.push(pos);
     }
-    console.log(path);
-    var newPath = new google.maps.Polyline({
-        path: path,
-        strokeColor: '#FF0000',
-        strokeOpacity: 0.9,
-        strokeWeight: 3
-    });
-    newPath.setMap(map);
-    paths.push(newPath);
+    res_paths.push(path);
+    console.log(res_paths);
+    var newPaths = [];
+    for (var i = 0; i < res_paths.length; i++) {
+        var newPath = new google.maps.Polyline({
+            path: res_paths[i],
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.9,
+            strokeWeight: 3
+        });
+        newPath.setMap(map);
+        newPaths.push(newPath);
+    }
+    paths.push(newPaths);
     did_snap = false;
     map.setCenter({lat: bLat, lng: bLon});
 }
@@ -214,6 +232,7 @@ $('#doit').on('click', function(e) {
         resultsMeta.scale = data.scale;
         resultsMeta.cX = cX;
         resultsMeta.cY = cY;
+        resultsMeta.cD = cD;
         resultsMeta.shape = shape;
         resultsMeta.shapeCrop = shapeCrop;
         pathFromLoc(results[0][0], results[0][1]);
