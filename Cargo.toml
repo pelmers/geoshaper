@@ -1,6 +1,6 @@
 [package]
 name = "geoshaper"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Peter Elmers <peter.elmers@yahoo.com>"]
 description = "Find shapes on maps."
 license = "MIT"
@@ -12,7 +12,7 @@ categories = ["visualization"]
 
 [features]
 default = []
-opencl = ["ocl"]
+opencl = ["ocl", "geogrid/opencl"]
 
 [dependencies]
 bincode = "1.0.0-alpha5"

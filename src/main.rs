@@ -24,7 +24,7 @@ use std::sync::Mutex;
 use std::path::{Path, PathBuf};
 use std::env;
 
-use geogrid::util::{Device, Processor, match_shape, mat_to_img};
+use geogrid::util::{Processor, match_shape, mat_to_img};
 
 use getopts::Options;
 use lru_cache::LruCache;
@@ -38,6 +38,7 @@ use types::*;
 
 #[cfg(feature="opencl")]
 mod opencl {
+    pub use ocl::Device;
     pub fn device_for_index(idx: usize) -> Option<Device> {
         use ocl::builders::DeviceSpecifier;
         (DeviceSpecifier::All)
@@ -55,7 +56,7 @@ mod opencl {
 
 #[cfg(not(feature="opencl"))]
 mod opencl {
-    use geogrid::util::Device;
+    pub use geogrid::util::Device;
     pub fn device_for_index(_: usize) -> Option<Device> {
         println!("Warning: opencl feature not enabled, option ignored.");
         None
@@ -201,7 +202,7 @@ fn find_match(saved_locs: State<Mutex<LruCache<Location, SavedLocation>>>,
     mat_to_img(&cm,
                (r, w),
                location.parent().join(format!("{}.cm.png", location.name)),
-               Some((0, 10000)));
+               Some((0, 1000)));
     let mut cm: Vec<_> = cm.iter().enumerate().filter(|&(_, v)| *v >= 0).collect();
     // Use an in-place sort because the vector may be several hundred megabytes.
     quicksort::quicksort_by(&mut cm, |&a, &b| a.1.cmp(b.1));

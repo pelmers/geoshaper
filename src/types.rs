@@ -147,10 +147,7 @@ impl SavedLocation {
                      geo.size(),
                      s.elapsed_ms());
             s.restart();
-            let mut dt = geo.l1dist_transform();
-            for v in &mut dt {
-                *v *= *v;
-            }
+            let dt = geo.l1dist_transform();
             println!("Distance transform took {} ms", s.elapsed_ms());
             s.restart();
             mat_to_img(geo.grid(),
@@ -160,7 +157,7 @@ impl SavedLocation {
             mat_to_img(&dt,
                        geo.size(),
                        location.parent().join(format!("{}.dt.png", location.name)),
-                       Some((0, 150)));
+                       Some((0, 25)));
             println!("Image saving took {} ms", s.elapsed_ms());
             // Save some space by clearing the grid since we only need the distance transform now.
             geo.clear_grid();
